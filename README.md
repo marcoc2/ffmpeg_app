@@ -1,56 +1,61 @@
 # FFmpeg Tools (Windows Context Menu)
 
-Uma ferramenta poderosa e visual para automatizar tarefas comuns do FFmpeg diretamente pelo menu de contexto (botão direito) do Windows.
+A powerful visual tool to automate common FFmpeg tasks directly from the Windows context menu (right-click).
 
-## 🚀 Funcionalidades
+## 🚀 Features
 
-### 🎬 Manipulação de Vídeo
+### 🎬 Video Manipulation
 
-- **Concatenar Vídeos**: Junte vários arquivos em um só.
-  - **Smart Analysis**: A interface avisa se os vídeos têm resoluções ou FPS diferentes.
-  - **Safe Mode**: Se houver incompatibilidade, o script `safe_concat.py` entra em ação automaticamente para redimensionar e normalizar os vídeos.
-  - **Heurísticas de Resolução**: Escolha como resolver conflitos — Maior Duração Total, Maior Resolução, Maioria, Primeiro Arquivo ou Manual.
-  - **Modos de Ajuste**: Letterbox (barras pretas) ou Crop (Centro, Cima, Baixo, Esquerda, Direita).
-- **Crop Espacial**: Recorte uma região (W×H) do vídeo ou GIF, com posição manual (X, Y) ou centralizada.
-- **Flash de Memória**: Intercale fragmentos de um segundo vídeo no primeiro, criando um efeito de "flashes de memória".
-  - Configurável: número de fragmentos (sorteados), subfragmentos por grupo, tamanho e espaçamento em frames.
-  - Seed reproduzível para resultados consistentes.
-- **Cortar Início/Fim**: Remova um número exato de frames do começo ou do final.
-- **Loop Final**: Extraia o trecho final e repita-o N vezes (Normal ou Ping-Pong).
-- **Redimensionar**: Converta rapidamente para 720p.
-- **Mover/Remover Áudio**: Mute o vídeo ou extraia apenas o som em MP3.
+- **Concatenate Videos**: Join multiple files into one.
+  - **Smart Analysis**: The interface warns if videos have different resolutions or FPS.
+  - **Safe Mode**: If there's an incompatibility, the `safe_concat.py` script automatically scales and normalizes the videos.
+  - **Resolution Heuristics**: Choose how to resolve conflicts — Longest Duration, Highest Resolution, Majority, First File, or Manual.
+  - **Adjustment Modes**: Letterbox (black bars) or Crop (Center, Top, Bottom, Left, Right).
+- **Spatial Crop**: Crop a region (W×H) from a video or GIF, with manual (X, Y) or centered positioning.
+- **Memory Flash**: Intercalate fragments from a second video into the first, creating a "memory flash" effect.
+  - Configurable: number of fragments (randomized), subfragments per group, size, and spacing in frames.
+  - Reproducible seed for consistent results.
+- **Side-by-Side**: Combine two videos horizontally.
+  - Automatically scales videos to matching heights.
+- **Overlay / Watermark**: Place an image or video on top of another.
+  - Custom positioning (X, Y) or automatic centering.
+  - Custom scaling for the overlay element.
+- **Cut Start/End**: Remove an exact number of frames from the beginning or end.
+- **Loop End**: Extract the final segment and repeat it N times (Normal or Ping-Pong).
+- **Resize**: Quickly convert to 720p.
+- **Move/Remove Audio**: Mute the video or extract only the sound as MP3.
 
-### 🖼️ Imagem e Áudio
+### 🖼️ Image and Audio
 
-- **Imagem para Vídeo**: Crie um vídeo de alta compatibilidade a partir de uma única imagem, escolhendo a duração (frames) e o FPS.
-- **Mix de Áudio**: Combine vários arquivos de áudio em um único mix.
-- **Substituir Áudio**: Troque a trilha sonora de um vídeo por um arquivo de áudio externo.
+- **Image to Video**: Create a high-compatibility video from a single image, choosing duration (frames) and FPS.
+- **Audio Mix**: Combine multiple audio files into a single mix.
+- **Replace Audio**: Swap a video's soundtrack with an external audio file.
 
-### 🔄 Conversão
+### 🔄 Conversion
 
-- **Converter para MP4 (H.264)**: Garanta compatibilidade universal.
-- **Converter para GIF**: Crie GIFs otimizados com paleta de cores inteligente.
+- **Convert to MP4 (H.264)**: Ensure universal compatibility.
+- **Convert to GIF**: Create optimized GIFs with smart color palettes.
 
-## 🛠️ Requisitos
+## 🛠️ Requirements
 
 - **Python 3.x**
 - **PyQt6** (`pip install PyQt6`)
-- **FFmpeg** instalado e configurado no seu PATH do Windows.
+- **FFmpeg** installed and configured in your Windows PATH.
 
-## 📥 Como Usar
+## 📥 How to Use
 
-1. Clone ou baixe esta pasta para o seu computador.
-2. Certifique-se de que o **FFmpeg** está acessível pelo terminal.
-3. Execute o programa através do `main_gui.py` ou do atalho `ffmpeg_tools.bat`.
-4. Arraste e solte seus arquivos na interface e selecione a operação desejada.
+1. Clone or download this folder to your computer.
+2. Ensure **FFmpeg** is accessible via the terminal.
+3. Run the program through `main_gui.py` or the `ffmpeg_tools.bat` shortcut.
+4. Drag and drop your files onto the interface and select the desired operation.
 
-## 📂 Estrutura do Projeto
+## 📂 Project Structure
 
-- `main_gui.py`: Interface principal em PyQt6 com suporte a Drag-and-Drop.
-- `safe_concat.py`: Script auxiliar para concatenação robusta de vídeos com formatos mistos (resolução, FPS, áudio).
-- `ffmpeg_tools.bat`: Atalho para execução rápida da interface.
-- `ffmpeg_tools.ico`: Ícone personalizado da aplicação.
+- `main_gui.py`: Main PyQt6 interface with Drag-and-Drop support.
+- `safe_concat.py`: Auxiliary script for robust concatenation of videos with mixed formats (resolution, FPS, audio).
+- `ffmpeg_tools.bat`: Shortcut for quick interface execution.
+- `ffmpeg_tools.ico`: Custom application icon.
 
 ---
 
-_Desenvolvido para facilitar o workflow de edição rápida de vídeos._
+_Developed to facilitate rapid video editing workflows._
