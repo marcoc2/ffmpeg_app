@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Windows
+*.lnk
+Thumbs.db
+Desktop.ini
+
+# FFmpeg specific (outputs)
+*_concat_*.mp4
+*_audio_*.mp3
+*_converted.mp4
+*.gif
+*_720p.mp4
+*_muted.mp4
+*_mixed_audio_*.mp3
+*_newaudio_*.mp4
+*_cutfront_*.mp4
+*_cutback_*.mp4
+*_loop_*.mp4
+*_safe_concat_*.mp4
+*_image_to_video_*.mp4
+concat.txt
+crash_report.txt
