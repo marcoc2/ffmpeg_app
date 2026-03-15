@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt
 
 # Import modular components
 from core import FFmpegWorker, OPERATIONS, exception_hook
-from widgets import ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget
+from widgets import ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget, GhostImagesOptionsWidget
 import ffmpeg_logic
 
 sys.excepthook = exception_hook
@@ -112,8 +112,9 @@ class FFmpegApp(QMainWindow):
         self.concat_opts = ConcatOptionsWidget()
         self.spatial_crop_opts = SpatialCropWidget()
         self.flash_opts = MemoryFlashOptionsWidget()
+        self.ghost_opts = GhostImagesOptionsWidget()
         
-        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts]:
+        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
 
@@ -158,6 +159,7 @@ class FFmpegApp(QMainWindow):
 
         self.spatial_crop_opts.setVisible(op in ("spatial_crop", "overlay"))
         self.flash_opts.setVisible(op == "memory_flash")
+        self.ghost_opts.setVisible(op == "ghost_images")
         self.analyze_compatibility()
 
     def analyze_compatibility(self):
@@ -236,7 +238,9 @@ class FFmpegApp(QMainWindow):
             "sc_x": self.spatial_crop_opts.sc_x_spin.value(), "sc_y": self.spatial_crop_opts.sc_y_spin.value(),
             "flash_count": self.flash_opts.flash_count_spin.value(), "flash_sub": self.flash_opts.flash_sub_spin.value(),
             "flash_size": self.flash_opts.flash_size_spin.value(), "flash_gap": self.flash_opts.flash_gap_spin.value(),
-            "seed": self.flash_opts.flash_seed_spin.value()
+            "seed": self.flash_opts.flash_seed_spin.value(),
+            "ghost_start": self.ghost_opts.ghost_start_spin.value(), "ghost_end": self.ghost_opts.ghost_end_spin.value(),
+            "ghost_dur": self.ghost_opts.ghost_dur_spin.value(), "ghost_opacity": self.ghost_opts.ghost_opacity_spin.value()
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)

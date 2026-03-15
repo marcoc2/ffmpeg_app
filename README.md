@@ -20,6 +20,10 @@ A powerful visual tool to automate common FFmpeg tasks directly from the Windows
 - **Overlay / Watermark**: Place an image or video on top of another.
   - Custom positioning (X, Y) or automatic centering.
   - Custom scaling for the overlay element.
+- **Ghost Images (Phantom Slide)**: Overlay multiple images with 30% transparency sliding across the screen.
+  - Select 1 video and N images.
+  - Images alternate sliding from Left or Right.
+  - Configurable start/end frames and duration per image.
 - **Cut Start/End**: Remove an exact number of frames from the beginning or end.
 - **Loop End**: Extract the final segment and repeat it N times (Normal or Ping-Pong).
 - **Resize**: Quickly convert to 720p.

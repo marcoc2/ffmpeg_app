@@ -208,4 +208,8 @@ def build_command(operation, files, config, metadata_cache):
         fc = f"[1:v]scale={cw}:{ch}[ovl];[0:v][ovl]overlay={pos}[vout]"
         return ["ffmpeg", "-y", "-i", v1, "-i", v2, "-filter_complex", fc, "-map", "[vout]", "-c:v", "libx264", out], out, None
 
+    elif operation == "ghost_images":
+        from ops import ghost_images_logic
+        return ghost_images_logic.build_command(files[0], files[1:], config, metadata_cache)
+
     return None, None, "Operação desconhecida."

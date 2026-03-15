@@ -1,5 +1,4 @@
 import sys
-import os
 import subprocess
 import traceback
 from datetime import datetime
@@ -65,4 +64,5 @@ OPERATIONS = {
     "Flash de Memória": "memory_flash",
     "Lado a Lado (Side-by-Side)": "side_by_side",
     "Marca d'água / Overlay": "overlay",
+    "Imagens Fantasma (Ghost Slide)": "ghost_images",
 }
