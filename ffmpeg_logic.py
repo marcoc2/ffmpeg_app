@@ -212,4 +212,20 @@ def build_command(operation, files, config, metadata_cache):
         from ops import ghost_images_logic
         return ghost_images_logic.build_command(files[0], files[1:], config, metadata_cache)
 
+    elif operation == "variable_speed":
+        from ops import variable_speed_logic
+        inp = files[0]
+        meta = metadata_cache.get(inp)
+        if not meta or not meta.get("is_video"):
+            return None, None, "Primeiro arquivo não é um vídeo válido."
+        duration = meta.get("duration", 0.0)
+        if duration <= 0:
+            return None, None, "Não foi possível determinar a duração do vídeo."
+        has_audio = meta.get("has_audio", False)
+        control_points = config.get("varspeed_points", [[0.0, 1.0], [1.0, 1.0]])
+        out = os.path.join(cwd, f"{os.path.splitext(os.path.basename(inp))[0]}_varspeed_{ts}.mp4")
+        return variable_speed_logic.build_variable_speed_command(
+            inp, control_points, has_audio, duration, out
+        )
+
     return None, None, "Operação desconhecida."

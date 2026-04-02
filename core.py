@@ -65,4 +65,5 @@ OPERATIONS = {
     "Lado a Lado (Side-by-Side)": "side_by_side",
     "Marca d'água / Overlay": "overlay",
     "Imagens Fantasma (Ghost Slide)": "ghost_images",
+    "Velocidade Variável": "variable_speed",
 }

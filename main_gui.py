@@ -1,15 +1,16 @@
 import sys
 import os
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QListWidget, QAbstractItemView, QListWidgetItem, 
-    QLabel, QMessageBox, QTextEdit, QComboBox, QFileDialog, QSpinBox
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QListWidget, QAbstractItemView, QListWidgetItem,
+    QLabel, QMessageBox, QTextEdit, QComboBox, QFileDialog, QSpinBox, QFrame
 )
 from PyQt6.QtCore import Qt
 
 # Import modular components
 from core import FFmpegWorker, OPERATIONS, exception_hook
-from widgets import ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget, GhostImagesOptionsWidget
+from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
+                    GhostImagesOptionsWidget, VariableSpeedOptionsWidget)
 import ffmpeg_logic
 
 sys.excepthook = exception_hook
@@ -33,7 +34,23 @@ class FFmpegApp(QMainWindow):
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        self.main_layout = QVBoxLayout(self.central_widget)
+
+        # Root layout: left panel (all controls) | right panel (speed curve)
+        self._root_layout = QHBoxLayout(self.central_widget)
+        self._root_layout.setContentsMargins(8, 8, 8, 8)
+        self._root_layout.setSpacing(0)
+
+        self._left_widget = QWidget()
+        self.main_layout = QVBoxLayout(self._left_widget)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self._root_layout.addWidget(self._left_widget)
+
+        self._separator = QFrame()
+        self._separator.setFrameShape(QFrame.Shape.VLine)
+        self._separator.setFrameShadow(QFrame.Shadow.Sunken)
+        self._separator.setStyleSheet("color: #555;")
+        self._separator.setVisible(False)
+        self._root_layout.addWidget(self._separator)
 
         # UI Setup
         self._setup_top_ui()
@@ -113,10 +130,15 @@ class FFmpegApp(QMainWindow):
         self.spatial_crop_opts = SpatialCropWidget()
         self.flash_opts = MemoryFlashOptionsWidget()
         self.ghost_opts = GhostImagesOptionsWidget()
-        
+
         for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
+
+        # Right-side panel for variable speed curve
+        self.varspeed_opts = VariableSpeedOptionsWidget()
+        self.varspeed_opts.setVisible(False)
+        self._root_layout.addWidget(self.varspeed_opts)
 
     def _setup_bottom_ui(self):
         btn_layout = QHBoxLayout()
@@ -160,6 +182,23 @@ class FFmpegApp(QMainWindow):
         self.spatial_crop_opts.setVisible(op in ("spatial_crop", "overlay"))
         self.flash_opts.setVisible(op == "memory_flash")
         self.ghost_opts.setVisible(op == "ghost_images")
+
+        is_speed = op == "variable_speed"
+        self._separator.setVisible(is_speed)
+        self.varspeed_opts.setVisible(is_speed)
+        if is_speed:
+            # Update X axis labels with first video's duration (if available)
+            if self.list_widget.count() > 0:
+                path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
+                meta = self.file_metadata.get(path)
+                if meta and meta.get("duration"):
+                    self.varspeed_opts.set_duration(meta["duration"])
+            if self.width() < 950:
+                self.resize(1120, max(self.height(), 560))
+        else:
+            if self.width() > 700:
+                self.resize(650, 500)
+
         self.analyze_compatibility()
 
     def analyze_compatibility(self):
@@ -199,6 +238,12 @@ class FFmpegApp(QMainWindow):
         if path not in self.file_metadata:
             meta = ffmpeg_logic.get_video_info(path)
             if meta: self.file_metadata[path] = meta
+        # If variable speed is active and this is the first video, update the curve's X axis
+        if OPERATIONS.get(self.op_combo.currentText()) == "variable_speed":
+            if self.list_widget.count() == 1:
+                meta = self.file_metadata.get(path)
+                if meta and meta.get("duration"):
+                    self.varspeed_opts.set_duration(meta["duration"])
         self.analyze_compatibility()
 
     def add_files_dialog(self):
@@ -240,7 +285,9 @@ class FFmpegApp(QMainWindow):
             "flash_size": self.flash_opts.flash_size_spin.value(), "flash_gap": self.flash_opts.flash_gap_spin.value(),
             "seed": self.flash_opts.flash_seed_spin.value(),
             "ghost_start": self.ghost_opts.ghost_start_spin.value(), "ghost_end": self.ghost_opts.ghost_end_spin.value(),
-            "ghost_dur": self.ghost_opts.ghost_dur_spin.value(), "ghost_opacity": self.ghost_opts.ghost_opacity_spin.value()
+            "ghost_dur": self.ghost_opts.ghost_dur_spin.value(), "ghost_opacity": self.ghost_opts.ghost_opacity_spin.value(),
+            "ghost_scale": self.ghost_opts.ghost_scale_spin.value(), "ghost_travel": self.ghost_opts.ghost_travel_spin.value(),
+            "varspeed_points": self.varspeed_opts.get_control_points(),
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)
