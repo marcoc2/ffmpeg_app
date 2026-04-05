@@ -25,7 +25,8 @@ def get_video_info(file_path):
         info = json.loads(result.stdout)
         
         video_stream = next((s for s in info.get("streams", []) if s.get("codec_type") == "video"), None)
-        meta = {"width": 0, "height": 0, "fps": 0.0, "is_video": False, "has_audio": False}
+        audio_stream = next((s for s in info.get("streams", []) if s.get("codec_type") == "audio"), None)
+        meta = {"width": 0, "height": 0, "fps": 0.0, "is_video": False, "has_audio": False, "sample_rate": 0, "channels": 0}
         
         if video_stream:
             meta["width"] = video_stream.get("width", 0)
@@ -40,7 +41,11 @@ def get_video_info(file_path):
             duration_val = info.get("format", {}).get("duration")
             meta["duration"] = float(duration_val) if duration_val else 0.0
             
-        meta["has_audio"] = any(s.get("codec_type") == "audio" for s in info.get("streams", []))
+        if audio_stream:
+            meta["has_audio"] = True
+            meta["sample_rate"] = int(audio_stream.get("sample_rate", 0))
+            meta["channels"] = int(audio_stream.get("channels", 0))
+            
         return meta
     except Exception:
         return None
@@ -64,7 +69,21 @@ def build_command(operation, files, config, metadata_cache):
         is_compatible = True
         for f in files[1:]:
             m = metadata_cache.get(f)
-            if not m or m["width"] != base_meta["width"] or m["height"] != base_meta["height"] or abs(m["fps"] - base_meta["fps"]) > 0.01:
+            if not m:
+                is_compatible = False
+                break
+            
+            # Video compatibility
+            if m["width"] != base_meta["width"] or \
+               m["height"] != base_meta["height"] or \
+               abs(m["fps"] - base_meta["fps"]) > 0.01:
+                is_compatible = False
+                break
+                
+            # Audio compatibility
+            if m["has_audio"] != base_meta["has_audio"] or \
+               m.get("sample_rate") != base_meta.get("sample_rate") or \
+               m.get("channels") != base_meta.get("channels"):
                 is_compatible = False
                 break
         
@@ -144,9 +163,9 @@ def build_command(operation, files, config, metadata_cache):
         return cmd, out, None
 
     elif operation == "replace_audio":
-        v_exts = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
         video_file, audio_file = (files[0], files[1]) if len(files) == 2 else (None, None)
-        if not video_file: return None, None, "Requer 1 vídeo e 1 áudio."
+        if not video_file:
+            return None, None, "Requer 1 vídeo e 1 áudio."
         # Extension swap logic if needed
         out = os.path.splitext(video_file)[0] + f"_newaudio_{ts}.mp4"
         return ["ffmpeg", "-y", "-i", video_file, "-i", audio_file, "-c:v", "copy", "-c:a", "aac", "-map", "0:v:0", "-map", "1:a:0?", "-shortest", out], out, None
@@ -161,9 +180,11 @@ def build_command(operation, files, config, metadata_cache):
         inp = files[0]
         frames = config.get("frames", 30)
         meta = metadata_cache.get(inp)
-        if not meta or not meta.get("nb_frames"): return None, None, "Não foi possível determinar o total de frames."
+        if not meta or not meta.get("nb_frames"):
+            return None, None, "Não foi possível determinar o total de frames."
         target = meta["nb_frames"] - frames
-        if target <= 0: return None, None, "O corte é maior ou igual ao vídeo."
+        if target <= 0:
+            return None, None, "O corte é maior ou igual ao vídeo."
         out = os.path.splitext(inp)[0] + f"_cutback_{frames}f.mp4"
         return ["ffmpeg", "-y", "-i", inp, "-vframes", str(target), "-c:a", "copy", out], out, None
 

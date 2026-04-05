@@ -59,7 +59,8 @@ class FFmpegApp(QMainWindow):
         self._setup_bottom_ui()
 
         if initial_files:
-            for f in initial_files: self.add_file(os.path.abspath(f))
+            for f in initial_files:
+                self.add_file(os.path.abspath(f))
         if initial_operation:
             for k, v in OPERATIONS.items():
                 if v == initial_operation:
@@ -160,7 +161,8 @@ class FFmpegApp(QMainWindow):
         self.btn_run.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; padding: 6px 16px;")
         self.btn_run.clicked.connect(self.run_ffmpeg)
 
-        for b in [self.btn_add, self.btn_up, self.btn_down, self.btn_remove]: btn_layout.addWidget(b)
+        for b in [self.btn_add, self.btn_up, self.btn_down, self.btn_remove]:
+            btn_layout.addWidget(b)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_run)
         self.main_layout.addLayout(btn_layout)
@@ -203,30 +205,49 @@ class FFmpegApp(QMainWindow):
 
     def analyze_compatibility(self):
         if self.list_widget.count() < 1:
-            self.compat_label.setText(""); self.concat_opts.setVisible(False); return
+            self.compat_label.setText("")
+            self.concat_opts.setVisible(False)
+            return
         op = OPERATIONS.get(self.op_combo.currentText())
         if op != "concat":
-            self.compat_label.setText(""); self.concat_opts.setVisible(False); return
+            self.compat_label.setText("")
+            self.concat_opts.setVisible(False)
+            return
         
         first = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
         meta = self.file_metadata.get(first)
         if not meta or not meta.get("is_video"):
-            self.compat_label.setText("⚠ Inválido"); self.concat_opts.setVisible(False); return
+            self.compat_label.setText("⚠ Inválido")
+            self.concat_opts.setVisible(False)
+            return
 
         issues = []
         for i in range(self.list_widget.count()):
             path = self.list_widget.item(i).data(Qt.ItemDataRole.UserRole)
             m = self.file_metadata.get(path)
             if not m: continue
-            self.list_widget.item(i).setText(f"{os.path.basename(path)} - ({m['width']}x{m['height']}, {m['fps']} FPS)")
-            if i > 0 and (m['width'] != meta['width'] or m['height'] != meta['height'] or abs(m['fps'] - meta['fps']) > 0.01):
-                issues.append(f"Item {i+1}")
+            
+            # Display metadata in the list
+            audio_info = f", {m['sample_rate']}Hz" if m['has_audio'] else ", No Audio"
+            self.list_widget.item(i).setText(f"{os.path.basename(path)} - ({m['width']}x{m['height']}, {m['fps']} FPS{audio_info})")
+            
+            if i > 0:
+                # Video mismatch
+                if m['width'] != meta['width'] or m['height'] != meta['height'] or abs(m['fps'] - meta['fps']) > 0.01:
+                    issues.append(f"Item {i+1} (Video)")
+                # Audio mismatch
+                elif m['has_audio'] != meta['has_audio'] or \
+                     m.get('sample_rate') != meta.get('sample_rate') or \
+                     m.get('channels') != meta.get('channels'):
+                    issues.append(f"Item {i+1} (Áudio)")
         
         if issues:
-            self.compat_label.setText(f"⚠ Incompatível: {', '.join(issues[:2])}"); self.compat_label.setStyleSheet("color: red")
+            self.compat_label.setText(f"⚠ Incompatível: {', '.join(issues[:2])}")
+            self.compat_label.setStyleSheet("color: #d32f2f")
             self.concat_opts.setVisible(True)
         else:
-            self.compat_label.setText("✅ Compatível"); self.compat_label.setStyleSheet("color: green")
+            self.compat_label.setText("✅ Compatível")
+            self.compat_label.setStyleSheet("color: #2e7d32")
             self.concat_opts.setVisible(False)
 
     def add_file(self, path):
@@ -255,7 +276,8 @@ class FFmpegApp(QMainWindow):
         if row > 0:
             item = self.list_widget.takeItem(row)
             self.list_widget.insertItem(row-1, item)
-            self.list_widget.setCurrentRow(row-1); self.analyze_compatibility()
+            self.list_widget.setCurrentRow(row-1)
+            self.analyze_compatibility()
 
     def move_down(self):
         row = self.list_widget.currentRow()
@@ -310,8 +332,10 @@ class FFmpegApp(QMainWindow):
         self.btn_run.setEnabled(True)
         self.log("\n--- SUCESSO ---" if code == 0 else f"\n--- FALHOU ({code}) ---")
         if code == 0 and OPERATIONS[self.op_combo.currentText()] == "concat":
-            try: os.remove(os.path.join(os.path.dirname(self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)), "concat.txt"))
-            except: pass
+            try:
+                os.remove(os.path.join(os.path.dirname(self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)), "concat.txt"))
+            except Exception:
+                pass
 
     def _dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.accept()
