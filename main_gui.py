@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt
 from core import FFmpegWorker, OPERATIONS, exception_hook
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
                     GhostImagesOptionsWidget, VariableSpeedOptionsWidget)
+from video_preview import VideoPreviewWidget
 import ffmpeg_logic
 
 sys.excepthook = exception_hook
@@ -141,6 +142,12 @@ class FFmpegApp(QMainWindow):
         self.varspeed_opts.setVisible(False)
         self._root_layout.addWidget(self.varspeed_opts)
 
+        # Right-side panel for video preview
+        self.video_preview = VideoPreviewWidget()
+        self.video_preview.setVisible(False)
+        self.video_preview.frame_selected.connect(self._on_preview_frame_selected)
+        self._root_layout.addWidget(self.video_preview)
+
     def _setup_bottom_ui(self):
         btn_layout = QHBoxLayout()
         self.btn_add = QPushButton("Adicionar Arquivos")
@@ -185,23 +192,52 @@ class FFmpegApp(QMainWindow):
         self.flash_opts.setVisible(op == "memory_flash")
         self.ghost_opts.setVisible(op == "ghost_images")
 
+        # Right-side panels: only one visible at a time
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images")
         is_speed = op == "variable_speed"
-        self._separator.setVisible(is_speed)
+        needs_right_panel = needs_preview or is_speed
+
+        self._separator.setVisible(needs_right_panel)
         self.varspeed_opts.setVisible(is_speed)
+        self.video_preview.setVisible(needs_preview)
+
         if is_speed:
-            # Update X axis labels with first video's duration (if available)
             if self.list_widget.count() > 0:
                 path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
                 meta = self.file_metadata.get(path)
                 if meta and meta.get("duration"):
                     self.varspeed_opts.set_duration(meta["duration"])
+
+        if needs_preview:
+            self._load_preview_for_first_video()
+
+        if needs_right_panel:
             if self.width() < 950:
                 self.resize(1120, max(self.height(), 560))
         else:
+            self.video_preview.clear()
             if self.width() > 700:
                 self.resize(650, 500)
 
         self.analyze_compatibility()
+
+    def _load_preview_for_first_video(self):
+        """Load the first video from the list into the preview widget."""
+        if self.list_widget.count() == 0:
+            self.video_preview.clear()
+            return
+        path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
+        meta = self.file_metadata.get(path)
+        if not meta or not meta.get("is_video"):
+            self.video_preview.clear()
+            return
+        fps = meta.get("fps", 30.0)
+        total_frames = meta.get("nb_frames", 0)
+        self.video_preview.load_video(path, fps, total_frames)
+
+    def _on_preview_frame_selected(self, frame):
+        """User clicked 'Usar este frame' in the preview."""
+        self.frames_spin.setValue(frame)
 
     def analyze_compatibility(self):
         if self.list_widget.count() < 1:
@@ -265,6 +301,9 @@ class FFmpegApp(QMainWindow):
                 meta = self.file_metadata.get(path)
                 if meta and meta.get("duration"):
                     self.varspeed_opts.set_duration(meta["duration"])
+        # If preview is visible and this is the first video, auto-load it
+        if self.video_preview.isVisible() and self.list_widget.count() == 1:
+            self._load_preview_for_first_video()
         self.analyze_compatibility()
 
     def add_files_dialog(self):
