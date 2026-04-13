@@ -173,8 +173,18 @@ def build_command(operation, files, config, metadata_cache):
     elif operation == "cut_front":
         inp = files[0]
         frames = config.get("frames", 30)
+        meta = metadata_cache.get(inp)
+        fps = meta.get("fps", 30.0) if meta else 30.0
+        # Calculate time offset from video frames
+        t_offset = frames / fps
         out = os.path.splitext(inp)[0] + f"_cutfront_{frames}f.mp4"
-        return ["ffmpeg", "-y", "-i", inp, "-vf", f"select='gte(n\,{frames})',setpts=PTS-STARTPTS", "-af", f"aselect='gte(n\,{frames})',asetpts=PTS-STARTPTS", out], out, None
+        # Use -ss for seeking and re-encode for frame-accurate cut
+        return [
+            "ffmpeg", "-y", "-ss", f"{t_offset:.6f}", "-i", inp,
+            "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+            "-c:a", "aac", "-b:a", "192k",
+            out
+        ], out, None
 
     elif operation == "cut_back":
         inp = files[0]
