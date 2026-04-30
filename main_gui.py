@@ -10,8 +10,9 @@ from PyQt6.QtCore import Qt
 # Import modular components
 from core import FFmpegWorker, OPERATIONS, exception_hook
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
-                    GhostImagesOptionsWidget, VariableSpeedOptionsWidget)
+                    GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget)
 from video_preview import VideoPreviewWidget
+from frame_editor_dialog import FrameEditorDialog
 import ffmpeg_logic
 
 sys.excepthook = exception_hook
@@ -132,8 +133,9 @@ class FFmpegApp(QMainWindow):
         self.spatial_crop_opts = SpatialCropWidget()
         self.flash_opts = MemoryFlashOptionsWidget()
         self.ghost_opts = GhostImagesOptionsWidget()
+        self.eye_blink_opts = EyeBlinkOptionsWidget()
 
-        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts]:
+        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
 
@@ -146,6 +148,7 @@ class FFmpegApp(QMainWindow):
         self.video_preview = VideoPreviewWidget()
         self.video_preview.setVisible(False)
         self.video_preview.frame_selected.connect(self._on_preview_frame_selected)
+        self.video_preview.frame_editor_requested.connect(self._open_frame_editor)
         self._root_layout.addWidget(self.video_preview)
 
     def _setup_bottom_ui(self):
@@ -181,7 +184,11 @@ class FFmpegApp(QMainWindow):
 
     def _on_operation_changed(self, text):
         op = OPERATIONS.get(text, "")
-        self.frames_lbl_title.setVisible(op in ("cut_front", "cut_back", "loop_end", "loop_pingpong", "image_to_video"))
+        self.frames_lbl_title.setVisible(op in ("cut_front", "cut_back", "loop_end", "loop_pingpong", "image_to_video", "frame_edit"))
+        if op == "frame_edit":
+            self.frames_lbl_title.setText("Frame:")
+        elif self.frames_lbl_title.text() != "Frames:":
+            self.frames_lbl_title.setText("Frames:")
         self.frames_spin.setVisible(self.frames_lbl_title.isVisible())
         self.loop_lbl_title.setVisible(op in ("loop_end", "loop_pingpong"))
         self.loop_spin.setVisible(self.loop_lbl_title.isVisible())
@@ -191,9 +198,10 @@ class FFmpegApp(QMainWindow):
         self.spatial_crop_opts.setVisible(op in ("spatial_crop", "overlay"))
         self.flash_opts.setVisible(op == "memory_flash")
         self.ghost_opts.setVisible(op == "ghost_images")
+        self.eye_blink_opts.setVisible(op == "eye_blink")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
@@ -219,6 +227,11 @@ class FFmpegApp(QMainWindow):
             if self.width() > 700:
                 self.resize(650, 500)
 
+        if op == "frame_edit":
+            self.btn_run.setText("✏  Abrir Editor de Frames")
+        elif self.btn_run.text() != "▶  Executar FFmpeg":
+            self.btn_run.setText("▶  Executar FFmpeg")
+
         self.analyze_compatibility()
 
     def _load_preview_for_first_video(self):
@@ -237,7 +250,33 @@ class FFmpegApp(QMainWindow):
 
     def _on_preview_frame_selected(self, frame):
         """User clicked 'Usar este frame' in the preview."""
-        self.frames_spin.setValue(frame)
+        op = OPERATIONS.get(self.op_combo.currentText())
+        if op == "eye_blink":
+            self.eye_blink_opts.add_point(frame)
+        elif op in ("cut_back", "loop_end", "loop_pingpong"):
+            path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
+            meta = self.file_metadata.get(path)
+            if meta and meta.get("nb_frames"):
+                total = meta["nb_frames"]
+                self.frames_spin.setValue(max(1, total - frame))
+            else:
+                self.frames_spin.setValue(frame)
+        else:
+            self.frames_spin.setValue(frame)
+
+    def _open_frame_editor(self, frame):
+        """Open the frame pixel editor centered on the given frame number."""
+        if self.list_widget.count() == 0:
+            return
+        path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
+        meta = self.file_metadata.get(path)
+        if not meta or not meta.get("is_video"):
+            QMessageBox.warning(self, "Aviso", "Nenhum vídeo válido carregado.")
+            return
+        fps = meta.get("fps", 30.0)
+        total_frames = meta.get("nb_frames", 0)
+        dlg = FrameEditorDialog(path, fps, total_frames, center_frame=frame, parent=self)
+        dlg.exec()
 
     def analyze_compatibility(self):
         if self.list_widget.count() < 1:
@@ -334,6 +373,10 @@ class FFmpegApp(QMainWindow):
         if self.list_widget.count() == 0: return
         files = [self.list_widget.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.list_widget.count())]
         op = OPERATIONS[self.op_combo.currentText()]
+
+        if op == "frame_edit":
+            self._open_frame_editor(self.frames_spin.value())
+            return
         config = {
             "frames": self.frames_spin.value(), "loops": self.loop_spin.value(), "fps": self.fps_spin.value(),
             "res_heuristic": self.concat_opts.res_heuristic_combo.currentText(),
@@ -349,6 +392,8 @@ class FFmpegApp(QMainWindow):
             "ghost_dur": self.ghost_opts.ghost_dur_spin.value(), "ghost_opacity": self.ghost_opts.ghost_opacity_spin.value(),
             "ghost_scale": self.ghost_opts.ghost_scale_spin.value(), "ghost_travel": self.ghost_opts.ghost_travel_spin.value(),
             "varspeed_points": self.varspeed_opts.get_control_points(),
+            "blink_duration": self.eye_blink_opts.blink_dur_spin.value(),
+            "blink_centers": self.eye_blink_opts.get_points(),
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)

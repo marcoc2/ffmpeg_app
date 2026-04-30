@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, QCheckBox,
-    QPushButton, QSizePolicy
+    QPushButton, QSizePolicy, QListWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QBrush
@@ -510,3 +510,57 @@ class VariableSpeedOptionsWidget(QWidget):
 
     def set_duration(self, secs):
         self.curve.set_duration(secs)
+
+class EyeBlinkOptionsWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Duração da Piscada (frames):"))
+        self.blink_dur_spin = QSpinBox()
+        self.blink_dur_spin.setRange(1, 120)
+        self.blink_dur_spin.setValue(10)
+        self.blink_dur_spin.setFixedWidth(60)
+        row1.addWidget(self.blink_dur_spin)
+        row1.addStretch()
+        layout.addLayout(row1)
+
+        layout.addWidget(QLabel("Pontos de Piscada (Centros):"))
+        self.points_list = QListWidget()
+        self.points_list.setFixedHeight(100)
+        layout.addWidget(self.points_list)
+
+        btn_row = QHBoxLayout()
+        self.btn_remove_point = QPushButton("Remover Ponto Selecionado")
+        self.btn_remove_point.clicked.connect(self.remove_point)
+        btn_row.addWidget(self.btn_remove_point)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+    def add_point(self, frame):
+        # Add frame to list, keep it sorted
+        frames = self.get_points()
+        if frame in frames:
+            return
+        frames.append(frame)
+        frames.sort()
+        
+        self.points_list.clear()
+        for f in frames:
+            self.points_list.addItem(f"Frame {f}")
+
+    def remove_point(self):
+        for item in self.points_list.selectedItems():
+            self.points_list.takeItem(self.points_list.row(item))
+
+    def get_points(self):
+        frames = []
+        for i in range(self.points_list.count()):
+            text = self.points_list.item(i).text()
+            try:
+                frames.append(int(text.replace("Frame ", "")))
+            except ValueError:
+                pass
+        return frames

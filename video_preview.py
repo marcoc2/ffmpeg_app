@@ -21,6 +21,7 @@ class VideoPreviewWidget(QWidget):
     """
 
     frame_selected = pyqtSignal(int)
+    frame_editor_requested = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -94,6 +95,15 @@ class VideoPreviewWidget(QWidget):
         self._btn_use.setToolTip("Envia o frame atual para o campo 'Frames' da operação")
         self._btn_use.clicked.connect(self._emit_frame)
         ctrl_row.addWidget(self._btn_use)
+
+        self._btn_edit = QPushButton("Editar Frames")
+        self._btn_edit.setStyleSheet(
+            "font-weight: bold; background-color: #7B1FA2; color: white; "
+            "padding: 4px 12px; border-radius: 3px;"
+        )
+        self._btn_edit.setToolTip("Abrir editor de frames para edição pixel a pixel")
+        self._btn_edit.clicked.connect(self._emit_edit_request)
+        ctrl_row.addWidget(self._btn_edit)
 
         layout.addLayout(ctrl_row)
 
@@ -206,3 +216,8 @@ class VideoPreviewWidget(QWidget):
         """Send the current frame number to the main GUI."""
         frame = self._ms_to_frame(self._player.position())
         self.frame_selected.emit(frame)
+
+    def _emit_edit_request(self):
+        """Open the frame editor centered on the current frame."""
+        frame = self._ms_to_frame(self._player.position())
+        self.frame_editor_requested.emit(frame)

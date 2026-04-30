@@ -259,4 +259,50 @@ def build_command(operation, files, config, metadata_cache):
             inp, control_points, has_audio, duration, out
         )
 
+    elif operation == "eye_blink":
+        from ops import eye_blink_logic
+        return eye_blink_logic.build_command(files, config, metadata_cache)
+
     return None, None, "Operação desconhecida."
+
+
+def build_frame_replace_command(video_path, replacements, output_path):
+    """
+    Build an ffmpeg command that replaces specific frames in video with edited images.
+
+    replacements: dict {frame_number (int): image_path (str)}
+
+    Strategy: chain overlay filters, one per replaced frame.
+    Each image input uses -loop 1 so ffmpeg treats the still as an endless stream;
+    the enable expression restricts the overlay to a single frame.
+    """
+    meta = get_video_info(video_path)
+    w = meta.get("width", 1920) if meta else 1920
+    h = meta.get("height", 1080) if meta else 1080
+    has_audio = meta.get("has_audio", False) if meta else False
+
+    frame_numbers = sorted(replacements.keys())
+
+    cmd = ["ffmpeg", "-y", "-i", video_path]
+    for fn in frame_numbers:
+        cmd.extend(["-loop", "1", "-i", replacements[fn]])
+
+    filter_parts = []
+    prev = "0:v"
+    for i, fn in enumerate(frame_numbers):
+        inp = i + 1
+        out = "vout" if i == len(frame_numbers) - 1 else f"v{i}"
+        filter_parts.append(
+            f"[{inp}:v]scale={w}:{h},format=yuv420p[ovl{i}];"
+            f"[{prev}][ovl{i}]overlay=0:0:enable='eq(n,{fn})'[{out}]"
+        )
+        prev = out
+
+    cmd += ["-filter_complex", ";".join(filter_parts)]
+    cmd += ["-map", "[vout]", "-c:v", "libx264", "-crf", "18", "-preset", "medium"]
+    if has_audio:
+        cmd += ["-map", "0:a?", "-c:a", "copy"]
+    else:
+        cmd += ["-an"]
+    cmd.append(output_path)
+    return cmd

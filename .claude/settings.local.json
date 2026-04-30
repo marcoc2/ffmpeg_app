@@ -5,7 +5,9 @@
       "Bash(rtk git:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(ffmpeg -hide_banner -y -i \"F:\\\\workspace\\\\ffmpeg_app\")",
+      "Bash(ffmpeg -hide_banner -fps_mode passthrough)"
     ]
   }
 }

@@ -66,4 +66,6 @@ OPERATIONS = {
     "Marca d'água / Overlay": "overlay",
     "Imagens Fantasma (Ghost Slide)": "ghost_images",
     "Velocidade Variável": "variable_speed",
+    "Piscada de Olho (POV)": "eye_blink",
+    "Editar Frames (Pixel)": "frame_edit",
 }
