@@ -280,6 +280,10 @@ def build_frame_replace_command(video_path, replacements, output_path):
     w = meta.get("width", 1920) if meta else 1920
     h = meta.get("height", 1080) if meta else 1080
     has_audio = meta.get("has_audio", False) if meta else False
+    duration = meta.get("duration", 0.0) if meta else 0.0
+    fps = meta.get("fps", 30.0) if meta else 30.0
+    if fps <= 0:
+        fps = 30.0
 
     frame_numbers = sorted(replacements.keys())
 
@@ -292,9 +296,13 @@ def build_frame_replace_command(video_path, replacements, output_path):
     for i, fn in enumerate(frame_numbers):
         inp = i + 1
         out = "vout" if i == len(frame_numbers) - 1 else f"v{i}"
+        # Use timestamp window instead of frame counter — more reliable across
+        # different encodings and avoids n-counter drift with B-frames or dups.
+        t_start = fn / fps
+        t_end = (fn + 1) / fps
         filter_parts.append(
             f"[{inp}:v]scale={w}:{h},format=yuv420p[ovl{i}];"
-            f"[{prev}][ovl{i}]overlay=0:0:enable='eq(n,{fn})'[{out}]"
+            f"[{prev}][ovl{i}]overlay=0:0:enable='between(t,{t_start:.8f},{t_end:.8f})'[{out}]"
         )
         prev = out
 
@@ -304,5 +312,9 @@ def build_frame_replace_command(video_path, replacements, output_path):
         cmd += ["-map", "0:a?", "-c:a", "copy"]
     else:
         cmd += ["-an"]
+    if duration > 0:
+        cmd += ["-t", f"{duration:.6f}"]
+    else:
+        cmd += ["-shortest"]
     cmd.append(output_path)
     return cmd

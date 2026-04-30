@@ -13,10 +13,79 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSpinBox, QScrollArea, QWidget, QFrame, QApplication, QMessageBox,
-    QSizePolicy, QTextEdit
+    QSizePolicy, QTextEdit, QLayout
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRect, QPoint, QSize
 from PyQt6.QtGui import QPixmap, QImage
+
+
+# ---------------------------------------------------------------------------
+# Flow layout – wraps children to next line like CSS flexbox/wrap
+# ---------------------------------------------------------------------------
+
+class FlowLayout(QLayout):
+    def __init__(self, parent=None, h_spacing=10, v_spacing=10):
+        super().__init__(parent)
+        self._items = []
+        self._h_spacing = h_spacing
+        self._v_spacing = v_spacing
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        return self._items[index] if 0 <= index < len(self._items) else None
+
+    def takeAt(self, index):
+        return self._items.pop(index) if 0 <= index < len(self._items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do_layout(QRect(0, 0, width, 0), test=True)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do_layout(rect, test=False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        m = self.contentsMargins()
+        return size + QSize(m.left() + m.right(), m.top() + m.bottom())
+
+    def _do_layout(self, rect, test):
+        m = self.contentsMargins()
+        x = rect.x() + m.left()
+        y = rect.y() + m.top()
+        right = rect.right() - m.right()
+        line_height = 0
+
+        for item in self._items:
+            sh = item.sizeHint()
+            next_x = x + sh.width()
+            if next_x > right and line_height > 0:
+                x = rect.x() + m.left()
+                y += line_height + self._v_spacing
+                next_x = x + sh.width()
+                line_height = 0
+            if not test:
+                item.setGeometry(QRect(QPoint(x, y), sh))
+            x = next_x + self._h_spacing
+            line_height = max(line_height, sh.height())
+
+        return y + line_height - rect.y() + m.bottom()
 
 
 # ---------------------------------------------------------------------------
@@ -26,19 +95,22 @@ from PyQt6.QtGui import QPixmap, QImage
 class FrameExtractWorker(QThread):
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, video_path, start_frame, end_frame, output_dir):
+    def __init__(self, video_path, start_frame, end_frame, fps, output_dir):
         super().__init__()
         self.video_path = video_path
         self.start_frame = start_frame
         self.end_frame = end_frame
+        self.fps = fps if fps > 0 else 30.0
         self.output_dir = output_dir
 
     def run(self):
         out_pattern = os.path.join(self.output_dir, "frame_%05d.png")
+        t_start = self.start_frame / self.fps
+        t_end = (self.end_frame + 1) / self.fps
         cmd = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", self.video_path,
-            "-vf", f"select='between(n,{self.start_frame},{self.end_frame})',setpts=PTS-STARTPTS",
+            "-vf", f"select='gte(t,{t_start:.8f})*lt(t,{t_end:.8f})',setpts=PTS-STARTPTS",
             "-fps_mode", "passthrough",
             out_pattern,
         ]
@@ -190,6 +262,7 @@ class FrameEditorDialog(QDialog):
     def __init__(self, video_path, fps, total_frames, center_frame=0, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Editor de Frames")
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
         self.setMinimumSize(700, 480)
         self.resize(960, 540)
 
@@ -239,7 +312,7 @@ class FrameEditorDialog(QDialog):
         ctrl_row.addSpacing(20)
         ctrl_row.addWidget(QLabel("Frames ao redor:"))
         self.radius_spin = QSpinBox()
-        self.radius_spin.setRange(0, 20)
+        self.radius_spin.setRange(0, 200)
         self.radius_spin.setValue(2)
         self.radius_spin.setFixedWidth(60)
         ctrl_row.addWidget(self.radius_spin)
@@ -259,18 +332,16 @@ class FrameEditorDialog(QDialog):
         self.status_label.setStyleSheet("color: #888; font-size: 11px;")
         layout.addWidget(self.status_label)
 
-        # Scroll area for frame cards (horizontal)
+        # Scroll area for frame cards (vertical, wrapping)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setMinimumHeight(280)
 
         self._cards_widget = QWidget()
-        self.cards_layout = QHBoxLayout(self._cards_widget)
+        self.cards_layout = FlowLayout(self._cards_widget, h_spacing=10, v_spacing=10)
         self.cards_layout.setContentsMargins(6, 6, 6, 6)
-        self.cards_layout.setSpacing(10)
-        self.cards_layout.addStretch()
         self.scroll.setWidget(self._cards_widget)
         layout.addWidget(self.scroll, 1)
 
@@ -309,14 +380,11 @@ class FrameEditorDialog(QDialog):
         end = min(self.total_frames - 1, center + radius)
 
         # Clear existing cards
-        for card in self._frame_cards.values():
-            card.setParent(None)
-            card.deleteLater()
-        self._frame_cards.clear()
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
-            if item.widget():
+            if item and item.widget():
                 item.widget().deleteLater()
+        self._frame_cards.clear()
 
         # Clean temp dir
         for f in os.listdir(self._temp_dir):
@@ -332,7 +400,7 @@ class FrameEditorDialog(QDialog):
         self.btn_apply.setEnabled(False)
 
         self._extract_worker = FrameExtractWorker(
-            self.video_path, start, end, self._temp_dir
+            self.video_path, start, end, self.fps, self._temp_dir
         )
         self._extract_worker.finished.connect(self._on_extract_finished)
         self._extract_worker.start()
@@ -357,7 +425,6 @@ class FrameEditorDialog(QDialog):
             self._frame_cards[frame_num] = card
             self.cards_layout.addWidget(card)
 
-        self.cards_layout.addStretch()
         self.btn_apply.setEnabled(True)
         total = end - start + 1
         self.status_label.setText(
