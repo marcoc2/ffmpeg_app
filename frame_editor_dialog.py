@@ -38,7 +38,7 @@ class FrameExtractWorker(QThread):
         cmd = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", self.video_path,
-            "-vf", f"select=between(n,{self.start_frame},{self.end_frame}),setpts=PTS-STARTPTS",
+            "-vf", f"select='between(n,{self.start_frame},{self.end_frame})',setpts=PTS-STARTPTS",
             "-fps_mode", "passthrough",
             out_pattern,
         ]
