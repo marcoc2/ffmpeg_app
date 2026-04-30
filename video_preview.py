@@ -150,10 +150,12 @@ class VideoPreviewWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _ms_to_frame(self, ms):
-        return int(round(ms / 1000.0 * self._fps))
+        # floor: which frame window does this timestamp fall in?
+        return int(ms * self._fps / 1000.0)
 
     def _frame_to_ms(self, frame):
-        return int(round(frame / self._fps * 1000.0))
+        # midpoint of the frame window — never lands on a boundary
+        return int((frame + 0.5) * 1000.0 / self._fps)
 
     def _toggle_play(self):
         if self._is_playing:
@@ -176,8 +178,7 @@ class VideoPreviewWidget(QWidget):
         target_frame = max(0, current_frame + delta)
         if self._total_frames > 0:
             target_frame = min(target_frame, self._total_frames - 1)
-        target_ms = self._frame_to_ms(target_frame)
-        self._player.setPosition(target_ms)
+        self._player.setPosition(self._frame_to_ms(target_frame))
 
     def _on_slider_moved(self, value):
         """User dragged the slider — seek the player."""
@@ -203,7 +204,7 @@ class VideoPreviewWidget(QWidget):
             self._slider.blockSignals(False)
 
         total = self._total_frames if self._total_frames > 0 else "?"
-        self._info_label.setText(f"Frame: {frame} / {total}  —  {t_sec:.3f}s")
+        self._info_label.setText(f"~Frame {frame} / {total}  —  {t_sec:.3f}s")
 
     def _on_duration_changed(self, duration_ms):
         """Player reported total duration — update slider range."""
