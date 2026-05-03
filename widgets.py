@@ -564,3 +564,26 @@ class EyeBlinkOptionsWidget(QWidget):
             except ValueError:
                 pass
         return frames
+
+class VideoTrimCenterOptsWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Total de Frames do Recorte:"))
+        self.trim_dur_spin = QSpinBox()
+        self.trim_dur_spin.setRange(1, 9999)
+        self.trim_dur_spin.setValue(31)
+        self.trim_dur_spin.setFixedWidth(60)
+        row1.addWidget(self.trim_dur_spin)
+        row1.addStretch()
+        layout.addLayout(row1)
+
+        hint = QLabel("O vídeo será recortado ao redor do frame central selecionado.")
+        hint.setStyleSheet("color: #888; font-size: 11px;")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        layout.addStretch()
+

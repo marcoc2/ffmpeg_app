@@ -263,6 +263,27 @@ def build_command(operation, files, config, metadata_cache):
         from ops import eye_blink_logic
         return eye_blink_logic.build_command(files, config, metadata_cache)
 
+    elif operation == "video_trim_center":
+        inp = files[0]
+        center = config.get("frames", 0)
+        trim_dur = config.get("trim_dur", 31)
+        meta = metadata_cache.get(inp)
+        fps = meta.get("fps", 30.0) if meta and meta.get("fps") else 30.0
+        if fps <= 0: fps = 30.0
+        
+        half = trim_dur // 2
+        start_frame = max(0, center - half)
+        t_start = start_frame / fps
+        
+        out = os.path.splitext(inp)[0] + f"_trim_{trim_dur}f_{ts}.mp4"
+        return [
+            "ffmpeg", "-y", "-ss", f"{t_start:.6f}", "-i", inp,
+            "-vframes", str(trim_dur),
+            "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+            "-c:a", "aac", "-b:a", "192k",
+            out
+        ], out, None
+
     return None, None, "Operação desconhecida."
 
 

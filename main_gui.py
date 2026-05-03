@@ -10,7 +10,8 @@ from PyQt6.QtCore import Qt
 # Import modular components
 from core import FFmpegWorker, OPERATIONS, exception_hook
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
-                    GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget)
+                    GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget,
+                    VideoTrimCenterOptsWidget)
 from video_preview import VideoPreviewWidget
 from frame_editor_dialog import FrameEditorDialog
 import ffmpeg_logic
@@ -134,8 +135,9 @@ class FFmpegApp(QMainWindow):
         self.flash_opts = MemoryFlashOptionsWidget()
         self.ghost_opts = GhostImagesOptionsWidget()
         self.eye_blink_opts = EyeBlinkOptionsWidget()
+        self.video_trim_opts = VideoTrimCenterOptsWidget()
 
-        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts]:
+        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts, self.video_trim_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
 
@@ -184,8 +186,8 @@ class FFmpegApp(QMainWindow):
 
     def _on_operation_changed(self, text):
         op = OPERATIONS.get(text, "")
-        self.frames_lbl_title.setVisible(op in ("cut_front", "cut_back", "loop_end", "loop_pingpong", "image_to_video", "frame_edit"))
-        if op == "frame_edit":
+        self.frames_lbl_title.setVisible(op in ("cut_front", "cut_back", "loop_end", "loop_pingpong", "image_to_video", "frame_edit", "video_trim_center"))
+        if op in ("frame_edit", "video_trim_center"):
             self.frames_lbl_title.setText("Frame:")
         elif self.frames_lbl_title.text() != "Frames:":
             self.frames_lbl_title.setText("Frames:")
@@ -199,9 +201,10 @@ class FFmpegApp(QMainWindow):
         self.flash_opts.setVisible(op == "memory_flash")
         self.ghost_opts.setVisible(op == "ghost_images")
         self.eye_blink_opts.setVisible(op == "eye_blink")
+        self.video_trim_opts.setVisible(op == "video_trim_center")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
@@ -394,6 +397,7 @@ class FFmpegApp(QMainWindow):
             "varspeed_points": self.varspeed_opts.get_control_points(),
             "blink_duration": self.eye_blink_opts.blink_dur_spin.value(),
             "blink_centers": self.eye_blink_opts.get_points(),
+            "trim_dur": self.video_trim_opts.trim_dur_spin.value(),
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)

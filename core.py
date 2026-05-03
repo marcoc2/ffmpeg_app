@@ -68,4 +68,5 @@ OPERATIONS = {
     "Velocidade Variável": "variable_speed",
     "Piscada de Olho (POV)": "eye_blink",
     "Editar Frames (Pixel)": "frame_edit",
+    "Video Trim (frame do meio)": "video_trim_center",
 }
