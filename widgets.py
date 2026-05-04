@@ -587,3 +587,25 @@ class VideoTrimCenterOptsWidget(QWidget):
         layout.addWidget(hint)
         layout.addStretch()
 
+class SliceAudioOptsWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Duração do trecho (seg):"))
+        self.slice_dur_spin = QSpinBox()
+        self.slice_dur_spin.setRange(1, 3600)
+        self.slice_dur_spin.setValue(10)
+        self.slice_dur_spin.setFixedWidth(60)
+        row1.addWidget(self.slice_dur_spin)
+        row1.addStretch()
+        layout.addLayout(row1)
+
+        hint = QLabel("O áudio será fatiado em vários arquivos com essa duração.")
+        hint.setStyleSheet("color: #888; font-size: 11px;")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        layout.addStretch()
+

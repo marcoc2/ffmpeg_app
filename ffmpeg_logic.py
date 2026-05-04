@@ -284,6 +284,18 @@ def build_command(operation, files, config, metadata_cache):
             out
         ], out, None
 
+    elif operation == "slice_audio":
+        inp = files[0]
+        slice_dur = config.get("slice_dur", 10)
+        base = os.path.splitext(os.path.basename(inp))[0]
+        out_pattern = os.path.join(cwd, f"{base}_slice_{ts}_%03d.mp3")
+        return [
+            "ffmpeg", "-y", "-i", inp,
+            "-vn", "-c:a", "libmp3lame", "-q:a", "2",
+            "-f", "segment", "-segment_time", str(slice_dur),
+            out_pattern
+        ], out_pattern, None
+
     return None, None, "Operação desconhecida."
 
 
