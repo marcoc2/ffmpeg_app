@@ -125,6 +125,24 @@ class SpatialCropWidget(QWidget):
         self.sc_x_spin.setEnabled(not checked)
         self.sc_y_spin.setEnabled(not checked)
 
+    def set_video_dimensions(self, w, h):
+        max_w = w if w > 0 else 7680
+        max_h = h if h > 0 else 4320
+        
+        self.sc_w_spin.setRange(2, max_w)
+        self.sc_h_spin.setRange(2, max_h)
+        self.sc_x_spin.setRange(0, max_w)
+        self.sc_y_spin.setRange(0, max_h)
+
+        if self.sc_w_spin.value() > max_w:
+            self.sc_w_spin.setValue(max_w)
+        if self.sc_h_spin.value() > max_h:
+            self.sc_h_spin.setValue(max_h)
+        if self.sc_x_spin.value() > max_w - self.sc_w_spin.value():
+            self.sc_x_spin.setValue(max_w - self.sc_w_spin.value())
+        if self.sc_y_spin.value() > max_h - self.sc_h_spin.value():
+            self.sc_y_spin.setValue(max_h - self.sc_h_spin.value())
+
 class MemoryFlashOptionsWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)

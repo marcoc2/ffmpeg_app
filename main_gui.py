@@ -152,6 +152,12 @@ class FFmpegApp(QMainWindow):
         self.video_preview.setVisible(False)
         self.video_preview.frame_selected.connect(self._on_preview_frame_selected)
         self.video_preview.frame_editor_requested.connect(self._open_frame_editor)
+        self.video_preview.crop_changed.connect(self._sync_preview_crop_to_widgets)
+        self.spatial_crop_opts.sc_x_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
+        self.spatial_crop_opts.sc_y_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
+        self.spatial_crop_opts.sc_w_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
+        self.spatial_crop_opts.sc_h_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
+        self.spatial_crop_opts.sc_center_cb.toggled.connect(self._sync_widgets_to_preview_crop)
         self._root_layout.addWidget(self.video_preview)
 
     def _setup_bottom_ui(self):
@@ -206,13 +212,24 @@ class FFmpegApp(QMainWindow):
         self.slice_audio_opts.setVisible(op == "slice_audio")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
         self._separator.setVisible(needs_right_panel)
         self.varspeed_opts.setVisible(is_speed)
         self.video_preview.setVisible(needs_preview)
+
+        # Set crop overlay active/mode
+        is_crop = op in ("spatial_crop", "overlay")
+        self.video_preview.set_crop_mode(
+            is_crop,
+            x=self.spatial_crop_opts.sc_x_spin.value(),
+            y=self.spatial_crop_opts.sc_y_spin.value(),
+            w=self.spatial_crop_opts.sc_w_spin.value(),
+            h=self.spatial_crop_opts.sc_h_spin.value(),
+            center=self.spatial_crop_opts.sc_center_cb.isChecked()
+        )
 
         if is_speed:
             if self.list_widget.count() > 0:
@@ -251,7 +268,22 @@ class FFmpegApp(QMainWindow):
             return
         fps = meta.get("fps", 30.0)
         total_frames = meta.get("nb_frames", 0)
-        self.video_preview.load_video(path, fps, total_frames)
+        width = meta.get("width", 1920) or 1920
+        height = meta.get("height", 1080) or 1080
+
+        self.spatial_crop_opts.set_video_dimensions(width, height)
+        self.video_preview.load_video(path, fps, total_frames, width, height)
+
+        # Make sure current widget state is updated in the preview
+        op = OPERATIONS.get(self.op_combo.currentText())
+        is_crop = op in ("spatial_crop", "overlay")
+        self.video_preview.set_crop_rect(
+            self.spatial_crop_opts.sc_x_spin.value(),
+            self.spatial_crop_opts.sc_y_spin.value(),
+            self.spatial_crop_opts.sc_w_spin.value(),
+            self.spatial_crop_opts.sc_h_spin.value(),
+            self.spatial_crop_opts.sc_center_cb.isChecked()
+        )
 
     def _on_preview_frame_selected(self, frame):
         """User clicked 'Usar este frame' in the preview."""
@@ -427,6 +459,47 @@ class FFmpegApp(QMainWindow):
                 os.remove(os.path.join(os.path.dirname(self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)), "concat.txt"))
             except Exception:
                 pass
+
+    def _sync_widgets_to_preview_crop(self):
+        if getattr(self, "_syncing_crop", False):
+            return
+        self._syncing_crop = True
+        try:
+            x = self.spatial_crop_opts.sc_x_spin.value()
+            y = self.spatial_crop_opts.sc_y_spin.value()
+            w = self.spatial_crop_opts.sc_w_spin.value()
+            h = self.spatial_crop_opts.sc_h_spin.value()
+            center = self.spatial_crop_opts.sc_center_cb.isChecked()
+            self.video_preview.set_crop_rect(x, y, w, h, center)
+        finally:
+            self._syncing_crop = False
+
+    def _sync_preview_crop_to_widgets(self, x, y, w, h, center):
+        if getattr(self, "_syncing_crop", False):
+            return
+        self._syncing_crop = True
+        try:
+            self.spatial_crop_opts.sc_x_spin.blockSignals(True)
+            self.spatial_crop_opts.sc_y_spin.blockSignals(True)
+            self.spatial_crop_opts.sc_w_spin.blockSignals(True)
+            self.spatial_crop_opts.sc_h_spin.blockSignals(True)
+            self.spatial_crop_opts.sc_center_cb.blockSignals(True)
+
+            self.spatial_crop_opts.sc_x_spin.setValue(x)
+            self.spatial_crop_opts.sc_y_spin.setValue(y)
+            self.spatial_crop_opts.sc_w_spin.setValue(w)
+            self.spatial_crop_opts.sc_h_spin.setValue(h)
+            self.spatial_crop_opts.sc_center_cb.setChecked(center)
+            
+            self.spatial_crop_opts.sc_x_spin.setEnabled(not center)
+            self.spatial_crop_opts.sc_y_spin.setEnabled(not center)
+        finally:
+            self.spatial_crop_opts.sc_x_spin.blockSignals(False)
+            self.spatial_crop_opts.sc_y_spin.blockSignals(False)
+            self.spatial_crop_opts.sc_w_spin.blockSignals(False)
+            self.spatial_crop_opts.sc_h_spin.blockSignals(False)
+            self.spatial_crop_opts.sc_center_cb.blockSignals(False)
+            self._syncing_crop = False
 
     def _dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.accept()
