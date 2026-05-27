@@ -153,6 +153,7 @@ class CropOverlayWidget(QWidget):
             self.update()
             
             self.crop_changed.emit(self.crop_x, self.crop_y, self.crop_w, self.crop_h, self.crop_center)
+        event.accept()
 
     def mouseMoveEvent(self, event):
         if self._is_dragging:
@@ -190,10 +191,12 @@ class CropOverlayWidget(QWidget):
                     
             self.update()
             self.crop_changed.emit(self.crop_x, self.crop_y, self.crop_w, self.crop_h, self.crop_center)
+        event.accept()
 
     def mouseReleaseEvent(self, event):
         if self._is_dragging:
             self._is_dragging = False
+        event.accept()
 
 
 class VideoPreviewWidget(QWidget):

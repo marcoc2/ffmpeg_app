@@ -4,17 +4,33 @@ import traceback
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 
+class StderrRedirector:
+    def __init__(self, filepath, original_stderr):
+        self.filepath = filepath
+        self.original_stderr = original_stderr
+
+    def write(self, message):
+        if message and message.strip():
+            self.original_stderr.write(message)
+            try:
+                with open(self.filepath, "a", encoding="utf-8") as f:
+                    f.write(f"\n--- STDERR AT {datetime.now()} ---\n")
+                    f.write(message)
+                    f.write("\n" + "-" * 30 + "\n")
+            except Exception:
+                pass
+        elif message:
+            self.original_stderr.write(message)
+
+    def flush(self):
+        self.original_stderr.flush()
+
+sys.stderr = StderrRedirector("crash_report.txt", sys.stderr)
+
 def exception_hook(exctype, value, tb):
     """Global exception hook to capture crashes that don't reach the console."""
     err_msg = "".join(traceback.format_exception(exctype, value, tb))
     print(err_msg, file=sys.stderr)
-    try:
-        with open("crash_report.txt", "a", encoding="utf-8") as f:
-            f.write(f"\n--- CRASH AT {datetime.now()} ---\n")
-            f.write(err_msg)
-            f.write("-" * 30 + "\n")
-    except Exception:
-        pass
     sys.__excepthook__(exctype, value, tb)
 
 class FFmpegWorker(QThread):
