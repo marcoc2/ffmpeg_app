@@ -13,6 +13,14 @@ from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QPainterPath
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
+from datetime import datetime
+
+def log_debug(msg):
+    try:
+        with open("preview_debug.log", "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now()}] {msg}\n")
+    except Exception:
+        pass
 
 
 class CropOverlayWidget(QWidget):
@@ -319,10 +327,13 @@ class VideoPreviewWidget(QWidget):
         width_val = int(width) if width is not None else 1920
         height_val = int(height) if height is not None else 1080
 
+        log_debug(f"load_video: path={path}, fps={fps_val}, total_frames={total_frames_val}, width={width_val}, height={height_val}")
+
         if hasattr(self, "crop_overlay"):
             self.crop_overlay.set_video_dimensions(width_val, height_val)
 
         if self._loaded_path == path:
+            log_debug("load_video: path is already loaded, skipping player source setup")
             return
         self._loaded_path = path
         self._fps = fps_val
@@ -334,6 +345,7 @@ class VideoPreviewWidget(QWidget):
 
     def clear(self):
         """Unload and reset the preview."""
+        log_debug("clear called on VideoPreviewWidget")
         self._player.stop()
         self._player.setSource(QUrl())
         self._loaded_path = None
@@ -380,7 +392,10 @@ class VideoPreviewWidget(QWidget):
         target_frame = max(0, current_frame + delta)
         if self._total_frames > 0:
             target_frame = min(target_frame, self._total_frames - 1)
-        self._player.setPosition(self._frame_to_ms(target_frame))
+        
+        target_ms = self._frame_to_ms(target_frame)
+        log_debug(f"_step_frames: delta={delta}, current_frame={current_frame}, target_frame={target_frame}, target_ms={target_ms}, position_ms={self._player.position()}")
+        self._player.setPosition(target_ms)
 
     def _on_slider_moved(self, value):
         """User dragged the slider — seek the player."""
@@ -388,6 +403,7 @@ class VideoPreviewWidget(QWidget):
         if not self._slider.isSliderDown():
             return
         target_ms = self._frame_to_ms(value)
+        log_debug(f"_on_slider_moved: value={value}, target_ms={target_ms}")
         if self._is_playing:
             self._player.pause()
             self._is_playing = False
@@ -400,19 +416,23 @@ class VideoPreviewWidget(QWidget):
         t_sec = position_ms / 1000.0
 
         # Update slider without triggering another seek
-        if not self._slider.isSliderDown():
+        is_down = self._slider.isSliderDown()
+        if not is_down:
             self._slider.blockSignals(True)
             self._slider.setValue(frame)
             self._slider.blockSignals(False)
 
         total = self._total_frames if self._total_frames > 0 else "?"
+        log_debug(f"_on_position_changed: position_ms={position_ms}, mapped_frame={frame}, total_frames={total}, slider_is_down={is_down}")
         self._info_label.setText(f"~Frame {frame} / {total}  —  {t_sec:.3f}s")
 
     def _on_duration_changed(self, duration_ms):
         """Player reported total duration — update slider range."""
         self._duration_ms = duration_ms
+        prev_total = self._total_frames
         if self._total_frames <= 0 and self._fps > 0:
             self._total_frames = self._ms_to_frame(duration_ms)
+        log_debug(f"_on_duration_changed: duration_ms={duration_ms}, prev_total={prev_total}, new_total={self._total_frames}")
         self._slider.setRange(0, max(1, self._total_frames))
 
     def _emit_frame(self):
