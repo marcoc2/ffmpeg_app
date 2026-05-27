@@ -231,10 +231,9 @@ class VideoPreviewWidget(QWidget):
         layout.addWidget(self._video_widget, 1)
 
         # Crop overlay
-        self.crop_overlay = CropOverlayWidget(self._video_widget)
+        self.crop_overlay = CropOverlayWidget(self)
         self.crop_overlay.setVisible(False)
         self.crop_overlay.crop_changed.connect(self.crop_changed.emit)
-        self._video_widget.installEventFilter(self)
 
         # Player
         self._player = QMediaPlayer()
@@ -312,14 +311,19 @@ class VideoPreviewWidget(QWidget):
 
     def load_video(self, path, fps=30.0, total_frames=0, width=1920, height=1080):
         """Load a video file into the preview."""
+        fps_val = float(fps) if (fps is not None and fps > 0) else 30.0
+        total_frames_val = int(total_frames) if total_frames is not None else 0
+        width_val = int(width) if width is not None else 1920
+        height_val = int(height) if height is not None else 1080
+
         if hasattr(self, "crop_overlay"):
-            self.crop_overlay.set_video_dimensions(width, height)
+            self.crop_overlay.set_video_dimensions(width_val, height_val)
 
         if self._loaded_path == path:
             return
         self._loaded_path = path
-        self._fps = fps if fps > 0 else 30.0
-        self._total_frames = total_frames
+        self._fps = fps_val
+        self._total_frames = total_frames_val
         self._player.setSource(QUrl.fromLocalFile(path))
         self._player.pause()
         self._is_playing = False
@@ -420,6 +424,7 @@ class VideoPreviewWidget(QWidget):
 
     def set_crop_mode(self, active, x=0, y=0, w=100, h=100, center=True):
         if hasattr(self, "crop_overlay"):
+            self.crop_overlay.setGeometry(self._video_widget.geometry())
             self.crop_overlay.set_active(active)
             self.crop_overlay.set_crop_rect(x, y, w, h, center)
 
@@ -427,8 +432,7 @@ class VideoPreviewWidget(QWidget):
         if hasattr(self, "crop_overlay"):
             self.crop_overlay.set_crop_rect(x, y, w, h, center)
 
-    def eventFilter(self, watched, event):
-        if watched == self._video_widget and event.type() == event.Type.Resize:
-            if hasattr(self, "crop_overlay"):
-                self.crop_overlay.setGeometry(self._video_widget.rect())
-        return super().eventFilter(watched, event)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "crop_overlay") and hasattr(self, "_video_widget"):
+            self.crop_overlay.setGeometry(self._video_widget.geometry())
