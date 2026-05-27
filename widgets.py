@@ -627,3 +627,55 @@ class SliceAudioOptsWidget(QWidget):
         layout.addWidget(hint)
         layout.addStretch()
 
+
+class VideoSlicingOptionsWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+
+        layout.addWidget(QLabel("Pontos de Corte (Frames):"))
+        self.points_list = QListWidget()
+        self.points_list.setFixedHeight(120)
+        layout.addWidget(self.points_list)
+
+        btn_row = QHBoxLayout()
+        self.btn_remove_point = QPushButton("Remover Corte Selecionado")
+        self.btn_remove_point.clicked.connect(self.remove_point)
+        btn_row.addWidget(self.btn_remove_point)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        hint = QLabel("Use o preview à direita e clique em '✂ Usar este frame' para adicionar pontos de corte.")
+        hint.setStyleSheet("color: #888; font-size: 11px;")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        layout.addStretch()
+
+    def add_point(self, frame):
+        frames = self.get_points()
+        if frame in frames:
+            return
+        frames.append(frame)
+        frames.sort()
+        
+        self.points_list.clear()
+        for f in frames:
+            self.points_list.addItem(f"Frame {f}")
+
+    def remove_point(self):
+        for item in self.points_list.selectedItems():
+            self.points_list.takeItem(self.points_list.row(item))
+
+    def get_points(self):
+        frames = []
+        for i in range(self.points_list.count()):
+            text = self.points_list.item(i).text()
+            try:
+                frames.append(int(text.replace("Frame ", "")))
+            except ValueError:
+                pass
+        return frames
+
+

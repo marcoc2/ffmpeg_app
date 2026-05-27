@@ -296,6 +296,38 @@ def build_command(operation, files, config, metadata_cache):
             out_pattern
         ], out_pattern, None
 
+    elif operation == "video_slicing":
+        inp = files[0]
+        points = config.get("slicing_points", [])
+        if not points:
+            return None, None, "Nenhum ponto de corte selecionado."
+        
+        meta = metadata_cache.get(inp)
+        fps = meta.get("fps", 30.0) if meta and meta.get("fps") else 30.0
+        if fps <= 0: fps = 30.0
+        has_audio = meta.get("has_audio", False) if meta else False
+
+        # Convert frame numbers to seconds and sort
+        sorted_times = sorted([p / fps for p in points])
+        segment_times = ",".join(f"{t:.6f}" for t in sorted_times)
+
+        base = os.path.splitext(os.path.basename(inp))[0]
+        out_pattern = os.path.join(cwd, f"{base}_slice_{ts}_%03d.mp4")
+
+        cmd = [
+            "ffmpeg", "-y", "-i", inp,
+            "-f", "segment",
+            "-segment_times", segment_times,
+            "-force_key_frames", segment_times,
+            "-c:v", "libx264", "-crf", "18", "-preset", "medium"
+        ]
+        if has_audio:
+            cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+        else:
+            cmd.append("-an")
+        cmd.append(out_pattern)
+        return cmd, out_pattern, None
+
     return None, None, "Operação desconhecida."
 
 

@@ -11,8 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QPainterPath
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtMultimediaWidgets import QVideoWidget
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QVideoSink, QVideoFrame
 from datetime import datetime
 
 def log_debug(msg):
@@ -21,6 +20,55 @@ def log_debug(msg):
             f.write(f"[{datetime.now()}] {msg}\n")
     except Exception:
         pass
+
+
+class VideoSurfaceWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.sink = QVideoSink()
+        self.sink.videoFrameChanged.connect(self._on_frame_changed)
+        self.current_frame = None
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+
+    def _on_frame_changed(self, frame):
+        self.current_frame = frame
+        self.update()
+
+    def clear(self):
+        self.current_frame = None
+        self.update()
+
+    def _get_video_render_rect(self, img_size):
+        widget_rect = self.rect()
+        if not img_size.width() or not img_size.height():
+            return QRectF(widget_rect)
+            
+        ar_vid = img_size.width() / img_size.height()
+        ar_widget = widget_rect.width() / widget_rect.height()
+
+        if ar_vid > ar_widget:
+            w_render = widget_rect.width()
+            h_render = widget_rect.width() / ar_vid
+            x_offset = 0
+            y_offset = (widget_rect.height() - h_render) / 2
+        else:
+            w_render = widget_rect.height() * ar_vid
+            h_render = widget_rect.height()
+            x_offset = (widget_rect.width() - w_render) / 2
+            y_offset = 0
+
+        return QRectF(x_offset, y_offset, w_render, h_render)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), Qt.GlobalColor.black)
+        
+        if self.current_frame and self.current_frame.isValid():
+            image = self.current_frame.toImage()
+            if not image.isNull():
+                render_rect = self._get_video_render_rect(image.size())
+                painter.drawImage(render_rect, image)
+
 
 
 class CropOverlayWidget(QWidget):
@@ -234,7 +282,7 @@ class VideoPreviewWidget(QWidget):
         layout.addWidget(title)
 
         # Video display
-        self._video_widget = QVideoWidget()
+        self._video_widget = VideoSurfaceWidget()
         self._video_widget.setMinimumSize(320, 180)
         self._video_widget.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
@@ -242,16 +290,17 @@ class VideoPreviewWidget(QWidget):
         layout.addWidget(self._video_widget, 1)
 
         # Crop overlay
-        self.crop_overlay = CropOverlayWidget(self)
+        self.crop_overlay = CropOverlayWidget(self._video_widget)
         self.crop_overlay.setVisible(False)
         self.crop_overlay.crop_changed.connect(self.crop_changed.emit)
+        self._video_widget.installEventFilter(self)
 
         # Player
         self._player = QMediaPlayer()
         self._audio = QAudioOutput()
         self._audio.setVolume(0.3)
         self._player.setAudioOutput(self._audio)
-        self._player.setVideoOutput(self._video_widget)
+        self._player.setVideoSink(self._video_widget.sink)
 
         # Slider
         slider_row = QHBoxLayout()
@@ -355,6 +404,8 @@ class VideoPreviewWidget(QWidget):
         self._info_label.setText("Frame: 0 / 0  —  0.000s")
         self._is_playing = False
         self._btn_play.setText("▶")
+        if hasattr(self, "_video_widget") and hasattr(self._video_widget, "clear"):
+            self._video_widget.clear()
         if hasattr(self, "crop_overlay"):
             self.crop_overlay.set_active(False)
             self.crop_overlay.set_video_dimensions(0, 0)
@@ -447,7 +498,7 @@ class VideoPreviewWidget(QWidget):
 
     def set_crop_mode(self, active, x=0, y=0, w=100, h=100, center=True):
         if hasattr(self, "crop_overlay"):
-            self.crop_overlay.setGeometry(self._video_widget.geometry())
+            self.crop_overlay.setGeometry(self._video_widget.rect())
             self.crop_overlay.set_active(active)
             self.crop_overlay.set_crop_rect(x, y, w, h, center)
 
@@ -455,7 +506,8 @@ class VideoPreviewWidget(QWidget):
         if hasattr(self, "crop_overlay"):
             self.crop_overlay.set_crop_rect(x, y, w, h, center)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if hasattr(self, "crop_overlay") and hasattr(self, "_video_widget"):
-            self.crop_overlay.setGeometry(self._video_widget.geometry())
+    def eventFilter(self, watched, event):
+        if watched == self._video_widget and event.type() == event.Type.Resize:
+            if hasattr(self, "crop_overlay"):
+                self.crop_overlay.setGeometry(self._video_widget.rect())
+        return False

@@ -11,7 +11,7 @@ from PyQt6.QtCore import Qt
 from core import FFmpegWorker, OPERATIONS, exception_hook
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
                     GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget,
-                    VideoTrimCenterOptsWidget, SliceAudioOptsWidget)
+                    VideoTrimCenterOptsWidget, SliceAudioOptsWidget, VideoSlicingOptionsWidget)
 from video_preview import VideoPreviewWidget
 from frame_editor_dialog import FrameEditorDialog
 import ffmpeg_logic
@@ -137,8 +137,9 @@ class FFmpegApp(QMainWindow):
         self.eye_blink_opts = EyeBlinkOptionsWidget()
         self.video_trim_opts = VideoTrimCenterOptsWidget()
         self.slice_audio_opts = SliceAudioOptsWidget()
+        self.video_slicing_opts = VideoSlicingOptionsWidget()
 
-        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts, self.video_trim_opts, self.slice_audio_opts]:
+        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts, self.video_trim_opts, self.slice_audio_opts, self.video_slicing_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
 
@@ -210,9 +211,10 @@ class FFmpegApp(QMainWindow):
         self.eye_blink_opts.setVisible(op == "eye_blink")
         self.video_trim_opts.setVisible(op == "video_trim_center")
         self.slice_audio_opts.setVisible(op == "slice_audio")
+        self.video_slicing_opts.setVisible(op == "video_slicing")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
@@ -290,6 +292,8 @@ class FFmpegApp(QMainWindow):
         op = OPERATIONS.get(self.op_combo.currentText())
         if op == "eye_blink":
             self.eye_blink_opts.add_point(frame)
+        elif op == "video_slicing":
+            self.video_slicing_opts.add_point(frame)
         elif op in ("cut_back", "loop_end", "loop_pingpong"):
             path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
             meta = self.file_metadata.get(path)
@@ -433,6 +437,7 @@ class FFmpegApp(QMainWindow):
             "blink_centers": self.eye_blink_opts.get_points(),
             "trim_dur": self.video_trim_opts.trim_dur_spin.value(),
             "slice_dur": self.slice_audio_opts.slice_dur_spin.value(),
+            "slicing_points": self.video_slicing_opts.get_points(),
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)

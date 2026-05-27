@@ -86,4 +86,5 @@ OPERATIONS = {
     "Editar Frames (Pixel)": "frame_edit",
     "Video Trim (frame do meio)": "video_trim_center",
     "Fatiar Áudio (Segmentos)": "slice_audio",
+    "Fatiar Vídeo (Video Slicing)": "video_slicing",
 }
