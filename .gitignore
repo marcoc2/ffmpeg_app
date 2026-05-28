@@ -28,3 +28,7 @@ concat.txt
 crash_report.txt
 error.png
 scratch/
+preview_debug.log
+*_edited_*.mp4
+*slices_*/
+

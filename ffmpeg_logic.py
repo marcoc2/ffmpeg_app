@@ -305,27 +305,28 @@ def build_command(operation, files, config, metadata_cache):
         meta = metadata_cache.get(inp)
         fps = meta.get("fps", 30.0) if meta and meta.get("fps") else 30.0
         if fps <= 0: fps = 30.0
-        has_audio = meta.get("has_audio", False) if meta else False
+        has_audio = 1 if (meta and meta.get("has_audio", False)) else 0
+        duration = meta.get("duration", 0.0) if meta else 0.0
+        min_duration = config.get("slicing_min_duration", 0.0)
 
         # Convert frame numbers to seconds and sort
         sorted_times = sorted([p / fps for p in points])
         segment_times = ",".join(f"{t:.6f}" for t in sorted_times)
 
         base = os.path.splitext(os.path.basename(inp))[0]
-        out_pattern = os.path.join(cwd, f"{base}_slice_{ts}_%03d.mp4")
+        slices_dir = os.path.join(cwd, f"{base}_slices_{ts}")
+        out_pattern = os.path.join(slices_dir, f"{base}_slice_%03d.mp4")
 
+        safe_slice_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "safe_slice.py")
         cmd = [
-            "ffmpeg", "-y", "-i", inp,
-            "-f", "segment",
-            "-segment_times", segment_times,
-            "-force_key_frames", segment_times,
-            "-c:v", "libx264", "-crf", "18", "-preset", "medium"
+            "python", safe_slice_script,
+            "--input", inp,
+            "--times", segment_times,
+            "--out-pattern", out_pattern,
+            "--has-audio", str(has_audio),
+            "--duration", f"{duration:.6f}",
+            "--min-duration", f"{min_duration:.6f}"
         ]
-        if has_audio:
-            cmd.extend(["-c:a", "aac", "-b:a", "192k"])
-        else:
-            cmd.append("-an")
-        cmd.append(out_pattern)
         return cmd, out_pattern, None
 
     return None, None, "Operação desconhecida."

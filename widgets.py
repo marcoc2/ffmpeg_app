@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, QCheckBox,
-    QPushButton, QSizePolicy, QListWidget
+    QPushButton, QSizePolicy, QListWidget, QDoubleSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QBrush
@@ -629,6 +629,8 @@ class SliceAudioOptsWidget(QWidget):
 
 
 class VideoSlicingOptionsWidget(QWidget):
+    auto_slice_requested = pyqtSignal(float) # emits threshold
+
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -641,17 +643,77 @@ class VideoSlicingOptionsWidget(QWidget):
         layout.addWidget(self.points_list)
 
         btn_row = QHBoxLayout()
-        self.btn_remove_point = QPushButton("Remover Corte Selecionado")
+        self.btn_remove_point = QPushButton("Remover Selecionado")
         self.btn_remove_point.clicked.connect(self.remove_point)
         btn_row.addWidget(self.btn_remove_point)
-        btn_row.addStretch()
+        
+        self.btn_clear_all = QPushButton("Limpar Todos")
+        self.btn_clear_all.clicked.connect(self.clear_all)
+        btn_row.addWidget(self.btn_clear_all)
         layout.addLayout(btn_row)
 
-        hint = QLabel("Use o preview à direita e clique em '✂ Usar este frame' para adicionar pontos de corte.")
-        hint.setStyleSheet("color: #888; font-size: 11px;")
+        layout.addSpacing(10)
+        
+        # Filter short segments controls
+        filter_row = QHBoxLayout()
+        self.ignore_short_cb = QCheckBox("Ignorar trechos menores que:")
+        self.ignore_short_cb.setChecked(False)
+        filter_row.addWidget(self.ignore_short_cb)
+
+        self.min_dur_spin = QDoubleSpinBox()
+        self.min_dur_spin.setRange(0.1, 9999.0)
+        self.min_dur_spin.setValue(2.0)
+        self.min_dur_spin.setSingleStep(0.5)
+        self.min_dur_spin.setSuffix(" s")
+        self.min_dur_spin.setFixedWidth(80)
+        self.min_dur_spin.setEnabled(False)
+        filter_row.addWidget(self.min_dur_spin)
+        filter_row.addStretch()
+        layout.addLayout(filter_row)
+
+        self.ignore_short_cb.toggled.connect(self.min_dur_spin.setEnabled)
+
+        layout.addSpacing(10)
+        
+        # Auto-slicing controls
+        auto_group = QVBoxLayout()
+        auto_title = QLabel("Auto-Slicing (Detecção de Cortes)")
+        auto_title.setStyleSheet("font-weight: bold; font-size: 11px;")
+        auto_group.addWidget(auto_title)
+
+        thresh_row = QHBoxLayout()
+        thresh_row.addWidget(QLabel("Limiar (Threshold):"))
+        self.thresh_spin = QSpinBox()
+        self.thresh_spin.setRange(1, 255)
+        self.thresh_spin.setValue(30)  # Default changed to 30 for better compatibility
+        self.thresh_spin.setFixedWidth(60)
+        thresh_row.addWidget(self.thresh_spin)
+        thresh_row.addStretch()
+        auto_group.addLayout(thresh_row)
+
+        self.btn_auto_slice = QPushButton("⚡ Detectar Cortes Automaticamente")
+        self.btn_auto_slice.setStyleSheet("background-color: #EF6C00; color: white; font-weight: bold; padding: 4px;")
+        self.btn_auto_slice.clicked.connect(self._on_auto_slice_clicked)
+        auto_group.addWidget(self.btn_auto_slice)
+
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #888; font-size: 10px;")
+        auto_group.addWidget(self.status_label)
+
+        layout.addLayout(auto_group)
+
+        layout.addSpacing(10)
+        hint = QLabel("Use o preview à direita e clique em '✂ Usar este frame' para adicionar cortes manualmente.")
+        hint.setStyleSheet("color: #888; font-size: 10px;")
         hint.setWordWrap(True)
         layout.addWidget(hint)
         layout.addStretch()
+
+    def _on_auto_slice_clicked(self):
+        self.auto_slice_requested.emit(float(self.thresh_spin.value()))
+
+    def clear_all(self):
+        self.points_list.clear()
 
     def add_point(self, frame):
         frames = self.get_points()
@@ -677,5 +739,14 @@ class VideoSlicingOptionsWidget(QWidget):
             except ValueError:
                 pass
         return frames
+
+    def get_min_duration(self):
+        if self.ignore_short_cb.isChecked():
+            return self.min_dur_spin.value()
+        return 0.0
+
+    def set_status(self, text):
+        self.status_label.setText(text)
+
 
 

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 # Import modular components
-from core import FFmpegWorker, OPERATIONS, exception_hook
+from core import FFmpegWorker, OPERATIONS, exception_hook, SceneDetectionWorker
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
                     GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget,
                     VideoTrimCenterOptsWidget, SliceAudioOptsWidget, VideoSlicingOptionsWidget)
@@ -154,6 +154,7 @@ class FFmpegApp(QMainWindow):
         self.video_preview.frame_selected.connect(self._on_preview_frame_selected)
         self.video_preview.frame_editor_requested.connect(self._open_frame_editor)
         self.video_preview.crop_changed.connect(self._sync_preview_crop_to_widgets)
+        self.video_slicing_opts.auto_slice_requested.connect(self._run_auto_slicing)
         self.spatial_crop_opts.sc_x_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
         self.spatial_crop_opts.sc_y_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
         self.spatial_crop_opts.sc_w_spin.valueChanged.connect(self._sync_widgets_to_preview_crop)
@@ -438,6 +439,7 @@ class FFmpegApp(QMainWindow):
             "trim_dur": self.video_trim_opts.trim_dur_spin.value(),
             "slice_dur": self.slice_audio_opts.slice_dur_spin.value(),
             "slicing_points": self.video_slicing_opts.get_points(),
+            "slicing_min_duration": self.video_slicing_opts.get_min_duration(),
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)
@@ -505,6 +507,38 @@ class FFmpegApp(QMainWindow):
             self.spatial_crop_opts.sc_h_spin.blockSignals(False)
             self.spatial_crop_opts.sc_center_cb.blockSignals(False)
             self._syncing_crop = False
+
+    def _run_auto_slicing(self, threshold):
+        if self.list_widget.count() == 0:
+            QMessageBox.warning(self, "Aviso", "Por favor, adicione um vídeo primeiro.")
+            return
+        
+        path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
+        
+        self.video_slicing_opts.btn_auto_slice.setEnabled(False)
+        self.video_slicing_opts.set_status("Analisando frames (0%)...")
+        
+        self._scene_worker = SceneDetectionWorker(path, threshold)
+        self._scene_worker.progress_signal.connect(self._on_auto_slice_progress)
+        self._scene_worker.finished_signal.connect(self._on_auto_slice_finished)
+        self._scene_worker.error_signal.connect(self._on_auto_slice_error)
+        self._scene_worker.start()
+
+    def _on_auto_slice_progress(self, percent):
+        self.video_slicing_opts.set_status(f"Analisando frames ({percent}%)...")
+
+    def _on_auto_slice_finished(self, cuts):
+        self.video_slicing_opts.btn_auto_slice.setEnabled(True)
+        self.video_slicing_opts.set_status(f"Concluído! {len(cuts)} cortes detectados.")
+        
+        self.video_slicing_opts.clear_all()
+        for c in cuts:
+            self.video_slicing_opts.add_point(c)
+
+    def _on_auto_slice_error(self, err_msg):
+        self.video_slicing_opts.btn_auto_slice.setEnabled(True)
+        self.video_slicing_opts.set_status("Erro na detecção.")
+        QMessageBox.critical(self, "Erro", f"Falha na detecção de cortes: {err_msg}")
 
     def _dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.accept()

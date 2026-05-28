@@ -62,6 +62,66 @@ class FFmpegWorker(QThread):
             self.output_signal.emit(f"Error executing command: {str(e)}")
             self.finished_signal.emit(-1)
 
+
+class SceneDetectionWorker(QThread):
+    finished_signal = pyqtSignal(list)
+    error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(int)
+
+    def __init__(self, video_path, threshold):
+        super().__init__()
+        self.video_path = video_path
+        self.threshold = threshold
+
+    def run(self):
+        try:
+            import cv2
+            import numpy as np
+
+            cap = cv2.VideoCapture(self.video_path)
+            if not cap.isOpened():
+                self.error_signal.emit("Não foi possível abrir o vídeo.")
+                return
+
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total_frames <= 0:
+                total_frames = 1
+
+            cuts = []
+            frame_idx = 0
+            prev_gray = None
+            min_scene_len = 15
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                small = cv2.resize(frame, (160, 120))
+                gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+
+                if prev_gray is not None:
+                    diff = cv2.absdiff(gray, prev_gray)
+                    mean_val = np.mean(diff)
+
+                    if mean_val > self.threshold:
+                        if not cuts or (frame_idx - cuts[-1]) >= min_scene_len:
+                            cuts.append(frame_idx)
+
+                prev_gray = gray
+                frame_idx += 1
+
+                if frame_idx % 10 == 0:
+                    pct = int(frame_idx * 100 / total_frames)
+                    self.progress_signal.emit(min(100, pct))
+
+            cap.release()
+            self.progress_signal.emit(100)
+            self.finished_signal.emit(cuts)
+        except Exception as e:
+            self.error_signal.emit(str(e))
+
+
 OPERATIONS = {
     "Concatenar Videos": "concat",
     "Extrair Audio (MP3)": "extract_audio",
