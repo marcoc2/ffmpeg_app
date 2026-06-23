@@ -215,7 +215,7 @@ class FFmpegApp(QMainWindow):
         self.video_slicing_opts.setVisible(op == "video_slicing")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing", "reverse")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 

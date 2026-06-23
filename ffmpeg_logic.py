@@ -329,6 +329,30 @@ def build_command(operation, files, config, metadata_cache):
         ]
         return cmd, out_pattern, None
 
+    elif operation == "reverse":
+        inp = files[0]
+        meta = metadata_cache.get(inp)
+        has_audio = meta.get("has_audio", False) if meta else False
+        out = os.path.splitext(inp)[0] + f"_reversed_{ts}.mp4"
+        if has_audio:
+            cmd = [
+                "ffmpeg", "-y", "-i", inp,
+                "-vf", "reverse",
+                "-af", "areverse",
+                "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+                "-c:a", "aac", "-b:a", "192k",
+                out
+            ]
+        else:
+            cmd = [
+                "ffmpeg", "-y", "-i", inp,
+                "-vf", "reverse",
+                "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+                "-an",
+                out
+            ]
+        return cmd, out, None
+
     return None, None, "Operação desconhecida."
 
 
