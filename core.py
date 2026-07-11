@@ -149,5 +149,6 @@ OPERATIONS = {
     "Fatiar Vídeo (Video Slicing)": "video_slicing",
     "Inverter Vídeo e Áudio (Reverse)": "reverse",
     "Extrair Frame (PNG)": "extract_frame",
+    "Extrair Frames de Transição": "extract_transitions",
 }
 

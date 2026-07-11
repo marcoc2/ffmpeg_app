@@ -383,6 +383,20 @@ def build_command(operation, files, config, metadata_cache):
         ]
         return cmd, out, None
 
+    elif operation == "extract_transitions":
+        if len(files) < 2:
+            return None, None, "Requer pelo menos 2 vídeos para extrair frames de transição."
+        videos_arg = ",".join(files)
+        out_dir = os.path.dirname(files[0])
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "extract_transition_frames.py")
+        cmd = [
+            "python", script_path,
+            "--videos", videos_arg,
+            "--out-dir", out_dir,
+            "--ts", ts
+        ]
+        return cmd, out_dir, None
+
     return None, None, "Operação desconhecida."
 
 

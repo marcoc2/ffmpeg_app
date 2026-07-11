@@ -218,7 +218,7 @@ class FFmpegApp(QMainWindow):
         self.extract_frame_opts.setVisible(op == "extract_frame")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing", "reverse", "extract_frame")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing", "reverse", "extract_frame", "extract_transitions")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
