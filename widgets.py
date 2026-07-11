@@ -749,4 +749,64 @@ class VideoSlicingOptionsWidget(QWidget):
         self.status_label.setText(text)
 
 
+class ExtractFrameOptionsWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Mode selection
+        layout.addWidget(QLabel("Modo de Seleção:"))
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["Número Absoluto do Frame", "Porcentagem do Vídeo (0-100)"])
+        layout.addWidget(self.mode_combo)
+        
+        layout.addSpacing(10)
+        
+        # Frame value spinbox
+        self.value_label = QLabel("Número do Frame:")
+        layout.addWidget(self.value_label)
+        
+        val_row = QHBoxLayout()
+        self.value_spin = QSpinBox()
+        self.value_spin.setRange(0, 999999)
+        self.value_spin.setValue(0)
+        self.value_spin.setFixedWidth(100)
+        val_row.addWidget(self.value_spin)
+        val_row.addStretch()
+        layout.addLayout(val_row)
+        
+        layout.addSpacing(10)
+        
+        # Hook up mode change to adjust suffix or help text
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        
+        hint = QLabel("Dica: Use o preview de vídeo na direita e clique em '✂ Usar este frame' para capturar o frame atual.")
+        hint.setStyleSheet("color: #888; font-size: 11px;")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        layout.addStretch()
+        
+    def _on_mode_changed(self, index):
+        if index == 0:  # Absolute
+            self.value_label.setText("Número do Frame:")
+            self.value_spin.setSuffix("")
+            self.value_spin.setRange(0, 999999)
+        else:  # Percentage
+            self.value_label.setText("Porcentagem (0-100):")
+            self.value_spin.setSuffix(" %")
+            self.value_spin.setRange(0, 100)
+            
+    def get_frame_config(self):
+        return {
+            "mode": "absolute" if self.mode_combo.currentIndex() == 0 else "percentage",
+            "value": self.value_spin.value()
+        }
+        
+    def set_absolute_frame(self, frame):
+        self.mode_combo.setCurrentIndex(0)
+        self.value_spin.setValue(frame)
+
+
+
 

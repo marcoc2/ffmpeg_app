@@ -353,6 +353,36 @@ def build_command(operation, files, config, metadata_cache):
             ]
         return cmd, out, None
 
+    elif operation == "extract_frame":
+        inp = files[0]
+        meta = metadata_cache.get(inp)
+        mode = config.get("extract_frame_mode", "absolute")
+        val = config.get("extract_frame_value", 0)
+        
+        total_frames = meta.get("nb_frames", 0) if meta else 0
+        fps = meta.get("fps", 30.0) if meta else 30.0
+        duration = meta.get("duration", 0.0) if meta else 0.0
+        if total_frames <= 0 and duration > 0.0:
+            total_frames = int(round(duration * fps))
+        if total_frames <= 0:
+            total_frames = 1
+            
+        if mode == "percentage":
+            target_frame = int(round((val / 100.0) * (total_frames - 1)))
+        else:
+            target_frame = int(val)
+            
+        target_frame = max(0, min(total_frames - 1, target_frame))
+        out = os.path.splitext(inp)[0] + f"_frame_{target_frame}_{ts}.png"
+        cmd = [
+            "ffmpeg", "-y", "-i", inp,
+            "-vf", f"select=eq(n\\,{target_frame})",
+            "-update", "1",
+            "-vframes", "1",
+            out
+        ]
+        return cmd, out, None
+
     return None, None, "Operação desconhecida."
 
 

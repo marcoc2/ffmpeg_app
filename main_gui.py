@@ -11,7 +11,8 @@ from PyQt6.QtCore import Qt
 from core import FFmpegWorker, OPERATIONS, exception_hook, SceneDetectionWorker
 from widgets import (ConcatOptionsWidget, SpatialCropWidget, MemoryFlashOptionsWidget,
                     GhostImagesOptionsWidget, VariableSpeedOptionsWidget, EyeBlinkOptionsWidget,
-                    VideoTrimCenterOptsWidget, SliceAudioOptsWidget, VideoSlicingOptionsWidget)
+                    VideoTrimCenterOptsWidget, SliceAudioOptsWidget, VideoSlicingOptionsWidget,
+                    ExtractFrameOptionsWidget)
 from video_preview import VideoPreviewWidget
 from frame_editor_dialog import FrameEditorDialog
 import ffmpeg_logic
@@ -138,8 +139,9 @@ class FFmpegApp(QMainWindow):
         self.video_trim_opts = VideoTrimCenterOptsWidget()
         self.slice_audio_opts = SliceAudioOptsWidget()
         self.video_slicing_opts = VideoSlicingOptionsWidget()
+        self.extract_frame_opts = ExtractFrameOptionsWidget()
 
-        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts, self.video_trim_opts, self.slice_audio_opts, self.video_slicing_opts]:
+        for w in [self.concat_opts, self.spatial_crop_opts, self.flash_opts, self.ghost_opts, self.eye_blink_opts, self.video_trim_opts, self.slice_audio_opts, self.video_slicing_opts, self.extract_frame_opts]:
             w.setVisible(False)
             self.main_layout.addWidget(w)
 
@@ -213,9 +215,10 @@ class FFmpegApp(QMainWindow):
         self.video_trim_opts.setVisible(op == "video_trim_center")
         self.slice_audio_opts.setVisible(op == "slice_audio")
         self.video_slicing_opts.setVisible(op == "video_slicing")
+        self.extract_frame_opts.setVisible(op == "extract_frame")
 
         # Right-side panels: only one visible at a time
-        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing", "reverse")
+        needs_preview = op in ("cut_front", "cut_back", "ghost_images", "eye_blink", "frame_edit", "video_trim_center", "spatial_crop", "overlay", "video_slicing", "reverse", "extract_frame")
         is_speed = op == "variable_speed"
         needs_right_panel = needs_preview or is_speed
 
@@ -295,6 +298,8 @@ class FFmpegApp(QMainWindow):
             self.eye_blink_opts.add_point(frame)
         elif op == "video_slicing":
             self.video_slicing_opts.add_point(frame)
+        elif op == "extract_frame":
+            self.extract_frame_opts.set_absolute_frame(frame)
         elif op in ("cut_back", "loop_end", "loop_pingpong"):
             path = self.list_widget.item(0).data(Qt.ItemDataRole.UserRole)
             meta = self.file_metadata.get(path)
@@ -440,6 +445,8 @@ class FFmpegApp(QMainWindow):
             "slice_dur": self.slice_audio_opts.slice_dur_spin.value(),
             "slicing_points": self.video_slicing_opts.get_points(),
             "slicing_min_duration": self.video_slicing_opts.get_min_duration(),
+            "extract_frame_mode": self.extract_frame_opts.get_frame_config()["mode"],
+            "extract_frame_value": self.extract_frame_opts.get_frame_config()["value"],
         }
         
         cmd, out, err = ffmpeg_logic.build_command(op, files, config, self.file_metadata)

@@ -148,5 +148,6 @@ OPERATIONS = {
     "Fatiar Áudio (Segmentos)": "slice_audio",
     "Fatiar Vídeo (Video Slicing)": "video_slicing",
     "Inverter Vídeo e Áudio (Reverse)": "reverse",
+    "Extrair Frame (PNG)": "extract_frame",
 }
 
